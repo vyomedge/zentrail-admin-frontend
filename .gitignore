@@ -1,0 +1,38 @@
+
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Production build
+/build
+/dist
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Deployment credentials and local configuration
+.vercel/
+.wrangler/
+.dev.vars
+.dev.vars.*
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Azure deployment pipelines
+azure-pipelines*.yml

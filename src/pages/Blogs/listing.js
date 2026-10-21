@@ -1,0 +1,233 @@
+import * as React from "react";
+import {
+  Box,
+  Stack,
+  Typography,
+  IconButton,
+  MenuItem,
+  FormControl,
+  Select,
+} from "@mui/material";
+import { DataGrid } from "@mui/x-data-grid";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import AddIcon from "@mui/icons-material/Add";
+import { apiClient } from "../../lib/api-client";
+import { useNavigate } from "react-router-dom";
+import ConfirmDelete from "../../commen-component/Modals/ConfirmDelete";
+import commoncss from "../../styles/commoncss";
+import CommonButton from "../../commen-component/CommenButton/CommenButton";
+export default function BlogListGrid() {
+  const [page, setPage] = React.useState(0);
+  const [limit, setLimit] = React.useState(10);
+  const [totalBlogs, setTotalBlogs] = React.useState(0);
+  const [listData, setListData] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [IdtoDelete, setIdtoDelete] = React.useState("");
+  const [loadingForDelete, setLoadingForDelete] = React.useState(false);
+  const [filterType, setFilterType] = React.useState("all");
+  const navigate = useNavigate();
+  const fetchData = React.useCallback(() => {
+    setLoading(true);
+    const typeQuery = filterType !== "all" ? `&type=${filterType}` : "";
+    apiClient
+      .get(`/api/blogs?page=${page + 1}&limit=${limit}${typeQuery}`)
+      .then((res) => {
+        const blogs = res.data.blogs || [];
+        setTotalBlogs(res.data.totalblogs || 0);
+        console.log(res.data)
+        const formatted = blogs.map((blog, index) => ({
+          ...blog,
+          id: blog._id, // Required for DataGrid
+          slNo: index + 1,
+          category: blog?.category?.name || "No Category",
+          createdAt: blog?.createdAt.split("T")[0],
+        }));
+        setListData(formatted);
+      })
+      .finally(() => setLoading(false));
+  }, [page, limit, filterType]);
+
+  React.useEffect(() => {
+    fetchData();
+  }, [page, limit, fetchData, filterType]);
+  const handleEdit = (id) => {
+    navigate(`/editblog/${id}`);
+  };
+
+  const handleDelete = () => {
+    setLoadingForDelete(true);
+    apiClient
+      .delete(`/api/blogs/${IdtoDelete}`)
+      .then(() => {
+        fetchData();
+        setLoadingForDelete(false);
+        setDialogOpen(false);
+        setIdtoDelete("");
+      })
+      .catch((err) => {
+        alert("Failed to delete");
+        setLoadingForDelete(false);
+        setDialogOpen(false);
+        setIdtoDelete("");
+      });
+  };
+
+  const handleCreate = () => {
+    navigate("/createblogs");
+  };
+
+  const columns = [
+    { field: "slNo", headerName: "SL No.", width: 80 },
+    {
+      field: "title",
+      headerName: "Title",
+      flex: 1,
+    },
+    {
+      field: "type",
+      headerName: "Type",
+      width: 100,
+    },
+    {
+      field: "category",
+      headerName: "Category",
+      width: 130,
+    },
+    {
+      field: "authorName",
+      headerName: "Author",
+      width: 130,
+    },
+    {
+      field: "status",
+      headerName: "Status",
+      renderCell: (params) => {
+        const status = params.value;
+        let color = 'black';
+        let backgroundColor = '#E0E0E0';
+
+        if (status === 'Published') {
+          color = 'green';
+          backgroundColor = '#E9FFDB'; //  green
+        } else if (status === 'Draft') {
+          color = '#b77d62';
+          backgroundColor = '#fff5cc'; // orange
+        } else if (status === 'Scheduled') {
+          color = '#617e9c';
+          backgroundColor = '#cafdf5'; // blue
+        }
+
+        return (
+          <span
+            style={{
+              color: color,
+              backgroundColor: backgroundColor,
+              fontWeight: 'bold',
+              padding: '5px 15px',
+              borderRadius: '5px',
+            }}
+          >
+            {status}
+          </span>
+        );
+      }
+    },
+    {
+      field: "createdAt",
+      headerName: "Created At",
+      // valueGetter: (params) =>
+      //   new Date(params?.row?.createdAt).toLocaleString(),
+    },
+    {
+      field: "actions",
+      headerName: "Actions",
+      width: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <>
+          <IconButton
+            onClick={() => handleEdit(params.row._id)}
+            color="primary"
+          >
+            <EditIcon />
+          </IconButton>
+          <IconButton
+            // onClick={() => handleDelete(params.row._id)}
+            onClick={() => {
+              setDialogOpen(true);
+              setIdtoDelete(params.row._id);
+            }}
+            color="error"
+          >
+            <DeleteIcon />
+          </IconButton>
+        </>
+      ),
+    },
+  ];
+
+  return (
+    <Box sx={commoncss.listBox}>
+      <Stack direction="row" justifyContent="space-between" mb={2}>
+        <Typography variant="h5">Blogs</Typography>
+        <Stack direction="row" gap={2} alignItems="center">
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <Select
+              value={filterType}
+              onChange={(e) => {
+                setPage(0);
+                setFilterType(e.target.value);
+              }}
+            >
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="blog">Blog</MenuItem>
+              <MenuItem value="news">News</MenuItem>
+            </Select>
+          </FormControl>
+          <CommonButton
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={handleCreate}
+          >
+            Create Blog
+          </CommonButton>
+        </Stack>
+
+      </Stack>
+
+      <DataGrid
+        rows={listData}
+        columns={columns}
+        rowCount={totalBlogs}          // 🟢 total count from API
+        paginationMode="server"        // 🟢 server pagination enable
+        paginationModel={{ page, pageSize: limit }}
+        onPaginationModelChange={(model) => {
+          setPage(model.page);
+          setLimit(model.pageSize);
+        }}
+        pageSizeOptions={[10, 20]}
+        loading={loading}
+        initialState={{
+          pagination: { paginationModel: { pageSize: 10, page: 0 } },
+        }}
+        checkboxSelection
+        disableRowSelectionOnClick
+      />
+
+      <ConfirmDelete
+        open={dialogOpen}
+        onClose={() => {
+          setDialogOpen(false);
+          setIdtoDelete("");
+        }}
+        onConfirm={handleDelete}
+        title="Delete Item?"
+        message="This action is permanent. Do you want to continue?"
+        loading={loadingForDelete}
+      />
+    </Box>
+  );
+}
